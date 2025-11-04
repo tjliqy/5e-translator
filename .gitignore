@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.pytest_cache/
+output/
+output-tmp/
+output-plu/
+*.log
+data/
+.venv/
+build/
+5e_translator.egg-info
+log/
+.env
