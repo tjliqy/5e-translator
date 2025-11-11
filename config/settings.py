@@ -1,4 +1,5 @@
-import logging
+# import logging
+from logger_config import logger
 import os
 
 from dotenv import load_dotenv
@@ -15,17 +16,17 @@ DB_CONFIG = {
 }
 
 DS_KEY = os.getenv("DS_KEY")
-logger = logging.getLogger(__name__)
-logging_file_name = f"/data/5e-translator/log/demo_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
-logging.basicConfig(
-    level=logging.INFO,  # 设置日志输出格式
-    filename=logging_file_name,  # log日志输出的文件位置和文件名
-    filemode="w",  # 文件的写入格式，w为重新写入文件，默认是追加
-    format="%(asctime)s - %(name)s - %(levelname)-9s - %(filename)-8s : %(lineno)s line - %(message)s"  # 日志输出的格式
-    # -8表示占位符，让输出左对齐，输出长度都为8位
-    ,
-    datefmt="%Y-%m-%d %H:%M:%S",  # 时间输出的格式
-)
+# logger = logging.getLogger(__name__)
+# logging_file_name = f"/data/5e-translator/log/demo_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
+# logging.basicConfig(
+#     level=logging.INFO,  # 设置日志输出格式
+#     filename=logging_file_name,  # log日志输出的文件位置和文件名
+#     filemode="w",  # 文件的写入格式，w为重新写入文件，默认是追加
+#     format="%(asctime)s - %(name)s - %(levelname)-9s - %(filename)-8s : %(lineno)s line - %(message)s"  # 日志输出的格式
+#     # -8表示占位符，让输出左对齐，输出长度都为8位
+#     ,
+#     datefmt="%Y-%m-%d %H:%M:%S",  # 时间输出的格式
+# )
 BASE_PATH = "/data/"
 EN_PATH=os.getenv("5ETOOLS_EN_PATH")
 OUT_PATH=os.getenv("OUTPUT_PATH")
@@ -39,7 +40,7 @@ SKIP_PATTERN=[r'^Math\.',r'\.json$',r'\.mp3$',r'\.pdf$',r'\.svg$',r'^system\.',r
 SKIP_PREFIX=['source=','level=','class=','subclass=','challenge rating=','speed type=','type=','miscellaneous=','category=','school=','components & miscellaneous=', 'Components & Miscellaneous=','spell attack=','tag=','search=','Type=','damage type=','Feature Type=','Base Species=', 'environment=','strength=','property=']
 TOTAL_SKIP_PREFIX=['rarity=']
 SKIP_SUFFIX=['#2','#c','#x']
-SKIP_KEYS=['source', 'fonts', 'type', 'path', 'id', 'href','mode','_meta','group','armor','trapHazType','vehicleType','rarity','imageType', 'edition','facilityType','activation.type','foundryId','foundrySystem','img', 'formula','damage.parts','target.affects.count','system','saveDamage','attackDamage', 'definedInSource', 'displayAs','abbreviation','tokenCredit', 'credit', 'addAs','dataType']
+SKIP_KEYS=['source', 'fonts', 'type', 'path', 'id', 'href','mode','_meta','group','armor','trapHazType','vehicleType','rarity','imageType', 'edition','facilityType','activation.type','foundryId','foundrySystem','img', 'formula','damage.parts','target.affects.count','system','saveDamage','attackDamage', 'definedInSource', 'displayAs','abbreviation','tokenCredit', 'credit', 'addAs','dataType','converterId']
 SKIP_KEY_PATH=[
   'ability/choose/from', 
   'toolProficiencies/choose/from',
@@ -220,3 +221,12 @@ BESTIARY_FILE_MAP = {
     'bestiary/bestiary-idrotf.json': '模组/冰风谷/生物',
     'bestiary/bestiary-skt.json': '模组/风暴君王之雷霆/图鉴'
 }
+
+
+# ===== 外部Core相关配置 ======
+OUTPUT_DATA_DIR = "/data/pttsw-core/output"
+
+SPLITED_5ETOOLS_DATA_DIR = EN_PATH
+SPLITED_5ETOOLS_DATA_DIR = OUTPUT_DATA_DIR + "/split-data"
+COMBINE_INFO_DATA_DIR = OUTPUT_DATA_DIR + "/combine-info"
+COMBINED_5ETOOLS_DATA_DIR = OUTPUT_DATA_DIR + "/combined-data"

@@ -1,7 +1,7 @@
 import argparse
 from app.core.utils import find_json_files, write_translate_cache
 from app.core.translator import JsonAnalyser, JobProcessor, KnowledgeSetter, TermSetter, JobNeedTranslateSetter, ByHandHandler
-from app.cli import transform_proofread, search_knowledge, compare_term, add_mysql_terms_to_redis, combine_temp_terms_to_csv,load_files_into_chroma_db, load_chm_files_into_chroma_db, load_term_from_text
+from app.cli import transform_proofread, search_knowledge, compare_term, add_mysql_terms_to_redis, combine_temp_terms_to_csv,load_files_into_chroma_db, load_chm_files_into_chroma_db, load_term_from_text, transform_html_2_txt
 from config import EN_PATH
 from app.core.database import DBDictionary
 import os
@@ -25,6 +25,9 @@ def main():
                                   help='Whether to force translate, update unproofreaded words, default to False')
     translate_parser.add_argument('--force-title', action='store_true', default=False,
                                   help='Whether to force translate, update unproofreaded titles, default to False')
+    translate_parser.add_argument('--splited',  action='store_true', default=False,
+                                  help='Whether to process splited data, default to False')
+    
     search_parser = subparsers.add_parser('search')
     search_parser.add_argument('--query', default='', type=str,
                                   help='Search query')
@@ -44,6 +47,10 @@ def main():
     embed_parser.add_argument('--dir', default='/data/DND5e_chm/艾伯伦：从终末战争中崛起', type=str,
                                   help='Path to the directory to embed')
     
+    chm_parser = subparsers.add_parser('chm')
+    chm_parser.add_argument('--dir', default='/data/DND5e_chm/', type=str,
+                                  help='Path to the directory to embed')
+    
     args = parser.parse_args()
     
     # 从数据库中编码
@@ -51,7 +58,7 @@ def main():
         transform_proofread()
     # 数据解析流程
     elif args.function == 'translate':
-        res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|KnowledgeSetter()|ByHandHandler()|TermSetter()|write_translate_cache|JobProcessor(args.thread_num, update=True)).invoke(args.en, config={'byhand': args.byhand, 'force': args.force, 'force_title': args.force_title})
+        res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|KnowledgeSetter()|ByHandHandler()|TermSetter()|write_translate_cache|JobProcessor(args.thread_num, update=True)).invoke(args.en, config={'byhand': args.byhand, 'force': args.force, 'force_title': args.force_title, 'splited': args.splited})
         # res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|write_translate_cache|JobProcessor(args.thread_num, update=True)).invoke(args.en, config={'byhand': args.byhand, 'force': args.force})
         # res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|KnowledgeSetter()|ByHandHandler()|write_translate_cache).invoke(args.en, config={'byhand': args.byhand, 'force': args.force, 'force_title': args.force_title})
         for r in res:
@@ -70,7 +77,7 @@ def main():
         elif args.mode == 'dump':
             combine_temp_terms_to_csv()
         elif args.mode == 'analyze':
-            for root, dirs, files in os.walk('/data/DND5e_chm/怪物图鉴2025'):
+            for root, dirs, files in os.walk('/data/5e-translator/data'):
             # if any(d in SKIP_HTML_DIRS for d in root.split('/')):
         #     continue
         

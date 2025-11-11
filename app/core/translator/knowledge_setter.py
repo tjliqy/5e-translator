@@ -25,6 +25,10 @@ class KnowledgeSetter(Runnable):
         Yields:
             FileWorkInfo: 添加了知识库信息的包含文件信息和任务列表的对象
         """
+        if (config['metadata'].get('splited', False)):
+            for res in input:
+                yield res
+            return
         for res in input:
             if "adventure" in res.json_path or "book-erlw" in res.json_path:
                 yield res

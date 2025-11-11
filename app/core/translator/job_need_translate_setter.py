@@ -14,6 +14,10 @@ class JobNeedTranslateSetter(Runnable):
         inputs = [input] if isinstance(input, str) else input
         self.byhand = config['metadata'].get('byhand', False)
         self.force = config['metadata'].get('force', False)
+        if (config['metadata'].get('splited', False)):
+            for res in input:
+                yield res
+            return
         self.force_title = config['metadata'].get('force_title', False)
         for res in input:
             for job in res.job_list:

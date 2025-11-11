@@ -47,6 +47,11 @@ class JobProcessor(Runnable):
         inputs = [input] if isinstance(input, str) else input
         self.byhand = config['metadata'].get('byhand', False)
         self.force = config['metadata'].get('force', False)
+        if (config['metadata'].get('splited', False)):
+            for res in inputs:
+                yield res
+            return
+        
         if self.byhand:
             # 手动模式，串行执行
             self.thread_num = 1

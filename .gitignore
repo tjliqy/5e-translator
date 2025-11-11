@@ -13,3 +13,4 @@ build/
 5e_translator.egg-info
 log/
 .env
+.vscode/

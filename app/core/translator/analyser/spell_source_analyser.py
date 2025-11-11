@@ -21,7 +21,7 @@ class SpellSourceAnalyser(BaseAnalyser):
                     db_bean = self.dictionary.get(spell_name,
                                                             load_from_sql=True,
                                                             ignore_case=True)
-                    if db_bean != None:
+                    if db_bean == None:
                         # 这里之所以不去调用KIMI接口是避免代码逻辑过于复杂，更新完数据如果出现了新的法术，可能会导致第一次翻译时无法找到中文，再执行一次脚本即可解决
                         cn_spell_name = spell_name  # 用英文原文先糊弄过去，同时警告
                         logger.error(f"无法找到法术名：{spell_name}的翻译")

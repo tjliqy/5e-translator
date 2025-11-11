@@ -34,7 +34,7 @@ def read_file(json_file):
         return content
 
 
-def get_same_files(en_root_folder=EN_PATH, cn_root_folder=CN_PATH) :
+def get_same_files(en_root_folder=EN_PATH, cn_root_folder='') :
     en_json_files = find_json_files(en_root_folder)
     res = []
     for en_json in en_json_files:

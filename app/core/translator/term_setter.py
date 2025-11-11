@@ -76,6 +76,10 @@ class TermSetter(Runnable):
         Yields:
             FileWorkInfo: 添加了知识库信息的包含文件信息和任务列表的对象
         """
+        if (config['metadata'].get('splited', False)):
+            for res in input:
+                yield res
+            return
         for res in input:
             # 使用线程池并发处理job_list中的每个job
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:

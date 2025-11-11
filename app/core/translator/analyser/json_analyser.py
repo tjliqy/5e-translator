@@ -2,7 +2,7 @@ import json
 import uuid
 import os
 from typing import List
-from config import  EN_PATH, PLU_EN_PATH, SKIP_FILES, SKIP_DIRS, logger
+from config import  EN_PATH, PLU_EN_PATH, SKIP_FILES, SKIP_DIRS, logger, SPLITED_5ETOOLS_DATA_DIR
 from app.core.utils import read_file, get_rel_path, FileWorkInfo, Job
 from app.core.database import DBDictionary
 from langchain_core.runnables import Runnable
@@ -20,6 +20,7 @@ class JsonAnalyser(Runnable):
             return
         self.knowledge = None
         self.byhand = False
+        self.splited = False # 是否是处理拆分后的数据
 
     def __init_dictionary(self):
         """
@@ -30,8 +31,9 @@ class JsonAnalyser(Runnable):
 
     def invoke(self, input, config=None, **kwargs):
         inputs = [input] if isinstance(input, str) else input
-        # self.byhand = config['metadata'].get('byhand', False)
-        print(config)
+        self.splited = config['metadata'].get('splited', False)
+        
+        # print(config)
         for j in inputs:
             logger.info(f"开始解析{j}中的Json")
             job_list, obj, ok = self.json_2_job(j)
@@ -44,7 +46,10 @@ class JsonAnalyser(Runnable):
             #     if not job.validate():
             #         logger.error(f"JsonAnalyser: 分析{j}时出错，Job不合法")
             #         continue
-            yield FileWorkInfo(job_list, obj, self.rel_path)
+            if self.splited:
+                yield FileWorkInfo(job_list, obj, get_rel_path(j, SPLITED_5ETOOLS_DATA_DIR))
+            else:
+                yield FileWorkInfo(job_list, obj, self.rel_path)
 
     def txt_2_json(self, json_txt):
         """
@@ -64,9 +69,19 @@ class JsonAnalyser(Runnable):
         """
         self.job_list = []
 
+        en_json_obj = None
         # 获取相对路径，这个路径会根据是否是PLU的源数据来做不同的处理
         if is_plu:
             self.rel_path = get_rel_path(json_file, PLU_EN_PATH)
+        elif self.splited:
+            en_json_obj, ok = self.txt_2_json(read_file(json_file))
+            if not ok:
+                return None, None, False
+            if not isinstance(en_json_obj, dict):
+                return None, None, True
+            if "_meta" not in en_json_obj or "origin_file" not in en_json_obj["_meta"]:
+                return None, None, True
+            self.rel_path = en_json_obj["_meta"]["origin_file"]
         else:
             self.rel_path = get_rel_path(json_file)
 
@@ -82,12 +97,13 @@ class JsonAnalyser(Runnable):
         # 跳过文件
         if self.rel_path in SKIP_FILES:
             return None, None, False
-        # 读取json文件
-        en_json_obj, ok = self.txt_2_json(read_file(json_file))
-        if not ok:
-            return None, None, False
-        if not isinstance(en_json_obj, dict):
-            return None, None, True
+        if en_json_obj is None:
+            # 读取json文件
+            en_json_obj, ok = self.txt_2_json(read_file(json_file))
+            if not ok:
+                return None, None, False
+            if not isinstance(en_json_obj, dict):
+                return None, None, True
         obj = {}  # 替换了Job uuid 标识符的json对象
         if self.rel_path == "spells/sources.json":
             # 针对法术source文件进行特殊处理
