@@ -122,10 +122,10 @@ PROMOT_KNOWLEDGE = """
 - Constrains:保证数据准确完整，JSON 文件可用。
 - OutputFormat: 维持原 JSON 格式，只输出翻译后数据，json 用英文引号。
 - Workflow:
-1.读取reference字段（相关术语，部分术语可能不符合当前语境，需结合语境来进行翻译）
+1.读取reference字段（相关术语及相似度较高的中文，部分术语可能不符合当前语境，需结合语境来进行翻译）
 2.读取parents字段（当前trans_str翻译文本的父层级，用于上下文理解）
 3.分析文件结构和数据类型。
-4.基于reference字段的术语和parents字段的上下文，用工具翻译并维护数据。
+4.基于reference字段的术语、相似度较高的中文和parents字段的上下文，用工具翻译并维护数据。若reference中有与英文相似度较高的中文，则直接在该中文的基础上替换所有{@aaa bbb}
 6.保留{@aaa bbb}格式的文本，并且翻译后的文本需要**保证所有{@aaa bbb}的顺序与英文一致**。
 7.检查是否符合Json格式、{@aaa bbb}的**数量**、**内容**和**顺序**是否一致
 8.输出翻译后的Json数据
@@ -206,6 +206,15 @@ PROMOT_DIFF= """
   输出：Activate an Item,Attack,Cast a Spell,
 - Initialization: 请输入一组英文词和一组中文词，我将找出它们中不同的英文词。
 """
+PROMOT_CORRECT_TAG = """
+- Role:D&D 5e 与 JSON 数据处理专家
+- Goals: 将中文文本（“cn_str”）中的{@aaa bbb}格式纠正为与英文文本（“en_str”）中{@aaa bbb}的数量和内容一致。
+- OutputFormat: 输出为json，只输出{"translate_str": "纠正后的中文"}
+- 若en_str中没有{@aaa bbb}，则输出中也不应该有{@aaa bbb}。若en_str中有{@aaa bbb}，则输出中的{@aaa bbb}的内容、顺序和数量必须与en_str一致。
+- Examples:
+  输入：{"en_str":"The {@item Eye of Vecna} and the {@item Hand of Vecna} each have the following random properties:","cn_str":"维克那法眼和维克那魔掌具有下列已知的随机属性："}
+  输出：{"translate_str":"{@item Eye of Vecna}和{@item Hand of Vecna}具有下列已知的随机属性："}
+"""
 
 REPLACE_PREFIX='need-translate-'
 SUBJOB_PATTERN = r"{@[^ \}]+ ([^\}\{@}]+)\}"
@@ -215,6 +224,7 @@ TAG_PATTERN = r"{@([^ \}]+) [^\}\{@}]+\}"
 
 # ===== 不全书相关配置 ======
 CHM_ROOT_DIR = os.getenv("CHM_ROOT_DIR")
+CHM_TXT_DIR = os.path.join(CHM_ROOT_DIR, "Generator/Generated/txt/")
 # 怪物图鉴翻译文件对照字典
 BESTIARY_FILE_MAP = {
     'bestiary/bestiary-xmm.json': '怪物图鉴2025',

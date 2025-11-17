@@ -65,6 +65,7 @@ class BaseAnalyser:
         """
         is_proofread = False
         sql_id = None
+        modified_at = 0
         if cn is None:
             # 如果只有{@tag xxx}的文本，则无需翻译，直接原样放置即可
             if only_has_format(en):
@@ -81,6 +82,7 @@ class BaseAnalyser:
                     cn = cn_bean['cn']
                     is_proofread = cn_bean['proofread']
                     sql_id = cn_bean['sql_id']
+                    modified_at = cn_bean['modified_at']
         
         # 手动翻译关键字（name）
         if self.byhand and is_proofread != 1 and ((current_names != [] and en == current_names[-1]) or  len(en.split(' ')) < 5) and need_translate_str(en):
@@ -91,11 +93,15 @@ class BaseAnalyser:
         # 将当前元素的名称列表转换为(name,cn_str)的元组列表
         names_in_job = []
         for name in current_names:
-            if self.get_job(name,tag=self.name_tag) is None:
+            name_job = self.get_job(name,tag=self.name_tag)
+            if name_job is None:
                 continue
-            names_in_job.append((name,self.get_job(name,tag=self.name_tag).cn_str))
+            if name_job.is_proofread:
+                names_in_job.append((name,name_job.cn_str))
+            else:
+                names_in_job.append((name, ""))
         self.job_list.append(Job(uid, en, cn, self.rel_path, tag, [
-        ], names_in_job, is_proofread, sql_id))
+        ], names_in_job, is_proofread, sql_id, modified_at=modified_at))
 
     def process_dict(self, en_dict: dict, key_path: str, current_names: list = [], skip_keys: list = []):
         """检查dict类型，输出处理完的dict
@@ -127,12 +133,16 @@ class BaseAnalyser:
                             # 将当前元素的名称列表转换为(name,cn_str)的元组列表
                     names_in_job = []
                     for name in current_names:
-                        if self.get_job(name,tag=self.name_tag) is None:
+                        name_job = self.get_job(name,tag=self.name_tag)
+                        if name_job is None:
                             continue
-                        names_in_job.append((name,self.get_job(name,tag=self.name_tag).cn_str))
-                    names_in_job.append((en_dict["name"],cn_bean['cn']))
+                        if name_job.is_proofread:
+                            names_in_job.append((name,name_job.cn_str))
+                        else:
+                            names_in_job.append((name, ""))
+                    names_in_job.append((en_dict["name"], cn_bean['cn'] if cn_bean['proofread'] else ""))
                     self.job_list.append(Job(uuid.uuid1(), en_dict["name"], cn_bean['cn'], self.rel_path, self.name_tag, [
-                    ], names_in_job, cn_bean['proofread'], cn_bean['sql_id']))
+                    ], names_in_job, cn_bean['proofread'], cn_bean['sql_id'], modified_at=cn_bean['modified_at']))
                     skip_name = True
             else:
                 res_dict['name'] = name_job.cn_str
@@ -210,13 +220,11 @@ class BaseAnalyser:
         sub_str_list = split_string(res_str)
         str_list = [res_str] if len(sub_str_list) == 1 else sub_str_list
 
-        # if len(sub_ks) > 1:
-        replaced_keys = []  # 替换为Job UUID后的文本
-        for sk in str_list:
-            if need_translate_str(sk):
+        def _process_value(v, tag=None):
+            if need_translate_str(v):
                 uid = uuid.uuid1()
                 # 去除前缀后缀
-                sk_without_prefix, prefix = check_prefix(sk)
+                sk_without_prefix, prefix = check_prefix(v)
                 sk_pure, suffix = check_suffix(sk_without_prefix)
                 # 生成Job 如果已经有相同的Job，则更新uuid
                 j = self.get_job(sk_pure, tag=tag)
@@ -227,9 +235,40 @@ class BaseAnalyser:
                     self.set_job(uid, sk_pure, None, tag=tag,
                                    current_names=current_names)
 
-                replaced_keys.append(f'{prefix}[!@ {uid}]{suffix}')
+                return f'{prefix}[!@ {uid}]{suffix}'
             else:
-                replaced_keys.append(sk)
+                return v
+        # if len(sub_ks) > 1:
+        if tag == "filter":
+            if (len(str_list) > 2):
+                # 正常至少有3个值
+                cv_page = str_list[1]
+                cv_name = _process_value(str_list[0], tag=cv_page)
+                if cv_page == "bestiary":
+                    cv_conditions = []
+                    for eev in str_list[2:]:
+                        if eev.startswith('type='):
+                            # 锁定type
+                            cv_conditions.append(eev)
+                        elif eev.startswith('tag='):
+                            # 锁定tag
+                            cv_conditions.append(eev)
+                        else:
+                            ccv = _process_value(eev)
+                            cv_conditions.append(ccv)
+                    res_str = f"{cv_name}|{cv_page}|{'|'.join(cv_conditions)}"
+                    return res_str
+                elif cv_page in ["items", "spells", "optionalfeatures", "races"]:
+                    cv_conditions = []
+                    for eev in str_list[2:]:
+                        ccv = _process_value(eev)
+                        cv_conditions.append(ccv)
+                    res_str = f"{cv_name}|{cv_page}|{'|'.join(cv_conditions)}"
+                    return res_str
+                
+        replaced_keys = []  # 替换为Job UUID后的文本
+        for sk in str_list:
+            replaced_keys.append(_process_value(sk, tag=tag))
         res_str = '|'.join(replaced_keys)
         return res_str
 

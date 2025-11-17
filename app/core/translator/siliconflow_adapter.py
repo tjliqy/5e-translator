@@ -19,7 +19,8 @@ class SiliconFlowAdapter:
             base_url = "https://api.siliconflow.cn/v1",
             openai_api_key = self.api_key,
             # model="deepseek-ai/DeepSeek-V3"
-            model="deepseek-ai/DeepSeek-V3.2-Exp"
+            model="deepseek-ai/DeepSeek-V3.2-Exp",
+            response_format={"type": "json_object"},
         )
 
     def sendText(self, text, promot: str = ""):
@@ -52,14 +53,14 @@ class SiliconFlowAdapter:
                 self.__wait(60)
                 return None, TranslatorStatus.WAITING
             # print(completion)
-            logging.info("DeepSeek回答："+message.content)
+            logger.info("DeepSeek回答："+message.content)
             return message, TranslatorStatus.SUCCESS
         except Exception:
             self.__wait(60)
             return None, TranslatorStatus.WAITING
 
     def __wait(self, second):
-        logging.info(f"已到达使用限制，{second/60}分钟后重试")
+        logger.info(f"已到达使用限制，{second/60}分钟后重试")
 
         self.access_time = int(time.time()) + second
 
@@ -68,14 +69,14 @@ class SiliconFlowAdapter:
 
     def __check_res(self, message):
         msg = message.content
-        logging.debug("msg: " + msg)
+        logger.debug("msg: " + msg)
 
         if msg == "" :
             logger.info("返回为空")
             self.remove_conversation()
             return TranslatorStatus.FAILURE
         elif "内容由于不合规被停止生成，我们换个话题吧" in msg:
-            logging.info(f"提示：{msg}" )
+            logger.info(f"提示：{msg}" )
             self.remove_conversation()
             self.__wait(1200)
             return TranslatorStatus.WAITING
@@ -91,6 +92,25 @@ class SiliconFlowAdapter:
             return None, kimi_status
         return message.content, TranslatorStatus.SUCCESS
 
+    @staticmethod
+    def parse_translate_str(message_content: str):
+        """
+        从 LLM 返回的 message.content 中解析出 `translate_str` 字段。
+        支持以下情形：
+        - content 为 JSON 字符串并包含 `translate_str` 键 -> 返回对应值
+        - content 为纯文本或不含 translate_str -> 返回 None
+        """
+        if not isinstance(message_content, str):
+            return None
+        try:
+            obj = json.loads(message_content)
+            if isinstance(obj, dict) and "translate_str" in obj:
+                return obj.get("translate_str")
+        except Exception:
+            # 非 JSON 内容，忽略
+            return None
+        return None
+
     def remove_conversation(self):
         return
         if self.id != "None":
@@ -103,5 +123,5 @@ class SiliconFlowAdapter:
                 },
             )
             # 打印返回的内容
-            logging.debug("会话已清除"+response.text)
+            logger.debug("会话已清除"+response.text)
             self.id = "None"

@@ -1,8 +1,8 @@
-
 from langchain_core.runnables import Runnable
 from ..utils.file_work_info import FileWorkInfo
 from config import logger
 from app.core.utils import Job, replace_cn_pattern, need_translate_str, check_prefix, check_suffix, parse_custom_format, reset_tags_index, format_llm_msg, parse_foundry_items_uuid_format
+from datetime import datetime
 
 
 class JobNeedTranslateSetter(Runnable):
@@ -14,10 +14,6 @@ class JobNeedTranslateSetter(Runnable):
         inputs = [input] if isinstance(input, str) else input
         self.byhand = config['metadata'].get('byhand', False)
         self.force = config['metadata'].get('force', False)
-        if (config['metadata'].get('splited', False)):
-            for res in input:
-                yield res
-            return
         self.force_title = config['metadata'].get('force_title', False)
         for res in input:
             for job in res.job_list:
@@ -44,6 +40,28 @@ class JobNeedTranslateSetter(Runnable):
                 return False
         # 2.如果没有中文，说明没有翻译过。如果是手动模式或强制翻译模式，则没校对的且包含术语的，也需要翻译
         if job.cn_str is None or (self.byhand == True or self.force == True):
+            logger.debug(f"job.modified_at: {job.modified_at}")
+            # 如果modified_at比2025-11-13晚，说明刚翻译过，不需要翻译
+            try:
+                # 创建参考日期
+                reference_date = datetime(2025, 11, 13)
+                
+                # 确保job.modified_at是datetime对象
+                if isinstance(job.modified_at, datetime):
+                    if job.modified_at > reference_date:
+                        return False
+                elif isinstance(job.modified_at, str):
+                    # 尝试将字符串转换为datetime对象
+                    try:
+                        modified_date = datetime.fromisoformat(job.modified_at.replace('Z', '+00:00'))
+                        if modified_date > reference_date:
+                            return False
+                    except ValueError:
+                        # 如果日期格式无法解析，继续后续检查
+                        logger.debug(f"无法解析日期格式: {job.modified_at}")
+            except Exception as e:
+                logger.error(f"日期比较错误: {str(e)}")
+            
             return need_translate_str(job.en_str) and (job.cn_str is None or job.cn_str != job.en_str)
         # 原来的中文可能存在 {@怪兽 xxx}的情况，需要替换回正确的英文格式{@bestry xxx}
         job.cn_str = replace_cn_pattern(job.cn_str, job.en_str)

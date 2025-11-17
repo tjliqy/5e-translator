@@ -4,7 +4,7 @@ import json
 import concurrent.futures
 
 from langchain_core.runnables import Runnable
-from config import logger, DS_KEY, SIMPLE_PROMOT, PROMOT_KNOWLEDGE
+from config import logger, DS_KEY, SIMPLE_PROMOT, PROMOT_KNOWLEDGE, OUT_PATH
 from app.core.utils import Job, TranslatorStatus
 from app.core.database import DatabaseAdapter
 from .siliconflow_adapter import SiliconFlowAdapter
@@ -47,10 +47,6 @@ class JobProcessor(Runnable):
         inputs = [input] if isinstance(input, str) else input
         self.byhand = config['metadata'].get('byhand', False)
         self.force = config['metadata'].get('force', False)
-        if (config['metadata'].get('splited', False)):
-            for res in inputs:
-                yield res
-            return
         
         if self.byhand:
             # 手动模式，串行执行
@@ -66,12 +62,17 @@ class JobProcessor(Runnable):
             # self.rel_path = get_rel_path(res.json_path)
             # self.obj = res['obj']
             self.done_jobs: List[Job] = []
-            self.factory.set_finish(False)
+            self.factory.reset()
+            # self.factory.set_finish(False)
             self.factory.add_jobs(res.job_list)
             self.factory.set_finish(True)
             self.factory.start_work()
-            self.write_2_json(res.json_path, res.json_obj)
+            if self.factory.isAllDone():
+                self.write_2_json(res.out_path, res.json_obj)
+            else:
+                logger.error(f"处理{res.json_path}中的Job总计{self.factory.job_count}个，成功{self.factory.finish_count}个，失败{self.factory.error_count}个！")
             yield res
+            
     def __init_dictionary(self):
         """
         初始化字典
@@ -125,6 +126,7 @@ class JobProcessor(Runnable):
             cn_str = replace_cn_pattern(
                 cstr, job.en_str)
             if not isinstance(cn_str, str):
+                job.last_answer = cstr
                 return None, TranslatorStatus.FAILURE
 
             if self.byhand:
@@ -143,12 +145,14 @@ class JobProcessor(Runnable):
                 # 自动模式，检查替换是否正确
                 # 1. 初筛中文的{ 和 }数量与英文相同
                 if cn_str.count('{') != job.en_str.count('{') or cn_str.count('}') != job.en_str.count('}'):
-                    logger.error(f"翻译文本替换错误:{job}")
+                    logger.warning(f"翻译文本替换错误:{job}")
+                    job.last_answer = cn_str
                     return None, TranslatorStatus.FAILURE
                 # 2. 检查替换是否正确
                 _ ,ok=  self.__replace_sub_jobs(cn_str,job.en_str,job.tag)
                 if not ok:
-                    logger.error(f"翻译文本替换错误:{job}")
+                    job.last_answer = cn_str
+                    logger.warning(f"翻译文本替换错误:{job}")
                     return None, TranslatorStatus.FAILURE
                 job.cn_str = cn_str
                 # job.cn_str = replaced_cn
@@ -259,9 +263,19 @@ class JobProcessor(Runnable):
                             if eev.startswith('type='):
                                 # 锁定type
                                 cv_conditions.append(eev)
+                            elif eev.startswith('tag='):
+                                # 锁定tag
+                                cv_conditions.append(eev)
                             else:
                                 ccv, _ = process_value(eev)
                                 cv_conditions.append(ccv)
+                        cn_str = f"{cv_name}|{cv_page}|{'|'.join(cv_conditions)}"
+                        return cn_str, True
+                    elif cv_page in ["items", "spells", "optionalfeatures", "races"]:
+                        cv_conditions = []
+                        for eev in filter_values[2:]:
+                            ccv, _ = process_value(eev)
+                            cv_conditions.append(ccv)
                         cn_str = f"{cv_name}|{cv_page}|{'|'.join(cv_conditions)}"
                         return cn_str, True
             en_split = en_str.split('|')
@@ -301,8 +315,10 @@ class JobProcessor(Runnable):
         # 检查替换操作是否成功
         if not ok:
             # 若替换失败，返回False
+            logger.warning(f"write_2_json: {json_path} failed")
             return False
         # 若替换成功，调用 __write_json 方法将替换后的内容写入JSON文件
+        json_path = os.path.join(OUT_PATH, json_path)
         job_path = json_path + ".jobs"
         if not (os.path.exists(json_path) and os.path.exists(job_path)):
             return False

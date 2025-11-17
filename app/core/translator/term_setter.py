@@ -15,7 +15,8 @@ class TermSetter(Runnable):
         if term_set:
             # 2. 处理术语列表（排序：长术语优先）
             self.terms = sorted(term_set, key=lambda x: len(x), reverse=True)
-            self.exact_pattern = re.compile(r'\b(' + '|'.join(re.escape(term) for term in self.terms) + r')\b')
+            self.exact_pattern = re.compile(r'\b(' + '|'.join(re.escape(term.lower()) for term in self.terms) + r')\b', re.IGNORECASE)
+            self.term_map_remaining = {term.lower(): term for term in self.terms}
         self.max_workers = 8  # 设置线程池大小，可根据实际情况调整
 
     def _process_job(self, job: Any) -> (Any):
@@ -30,31 +31,32 @@ class TermSetter(Runnable):
         if job.cn_str is not None and job.cn_str == job.en_str:
             return job
         
-        logger.info(f"term_setter: {job.en_str}")
+        logger.debug(f"term_setter: {job.en_str}")
         # 将英文句子拆分为可能的术语
 
         # 3. 分两步匹配：先精确匹配大小写，再不区分大小写匹配剩余术语
         # 3.1 精确大小写匹配
         exact_matches = self.exact_pattern.findall(job.en_str)
         
-        # 3.2 移除已精确匹配的术语，对剩余术语进行不区分大小写匹配
-        remaining_terms = [term for term in self.terms if term not in exact_matches]
-        case_insensitive_matches = []
-        if remaining_terms:
-            # 创建剩余术语的小写映射表（键：小写术语，值：原始术语）
-            term_map_remaining = {term.lower(): term for term in remaining_terms}
-            # 使用小写术语构建模式，确保匹配时不区分大小写
-            case_insensitive_pattern = re.compile(
-                r'\b(' + '|'.join(re.escape(term.lower()) for term in remaining_terms) + r')\b', 
-                re.IGNORECASE
-            )
-            # 从文本中查找匹配项（可能是任意大小写）
-            text_matches = case_insensitive_pattern.findall(job.en_str)
-            # 将文本匹配项转换为术语库中的原始大小写
-            case_insensitive_matches = [term_map_remaining[match.lower()] for match in text_matches]
+        # # 3.2 移除已精确匹配的术语，对剩余术语进行不区分大小写匹配
+        # remaining_terms = [term for term in self.terms if term not in exact_matches]
+        # case_insensitive_matches = []
+        # if remaining_terms:
+        #     # 创建剩余术语的小写映射表（键：小写术语，值：原始术语）
+        #     term_map_remaining = {term.lower(): term for term in remaining_terms}
+        #     # 使用小写术语构建模式，确保匹配时不区分大小写
+        #     case_insensitive_pattern = re.compile(
+        #         r'\b(' + '|'.join(re.escape(term.lower()) for term in remaining_terms) + r')\b', 
+        #         re.IGNORECASE
+        #     )
+        #     # 从文本中查找匹配项（可能是任意大小写）
+        #     text_matches = case_insensitive_pattern.findall(job.en_str)
+        # 将文本匹配项转换为术语库中的原始大小写
+        case_insensitive_matches = [self.term_map_remaining[match.lower()] for match in exact_matches]
 
         # 3.3 合并结果并去重（保留精确匹配优先顺序）
-        matched_keys = list(dict.fromkeys(exact_matches + case_insensitive_matches))
+        # matched_keys = list(dict.fromkeys(exact_matches + case_insensitive_matches))
+        matched_keys = list(dict.fromkeys(case_insensitive_matches))
         # 3.4 合并Job中的当前名称并去重
         # 4. 根据key查询术语中文
         matched_terms = []
@@ -76,10 +78,10 @@ class TermSetter(Runnable):
         Yields:
             FileWorkInfo: 添加了知识库信息的包含文件信息和任务列表的对象
         """
-        if (config['metadata'].get('splited', False)):
-            for res in input:
-                yield res
-            return
+        # if (config['metadata'].get('splited', False)):
+        #     for res in input:
+        #         yield res
+        #     return
         for res in input:
             # 使用线程池并发处理job_list中的每个job
             with concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers) as executor:

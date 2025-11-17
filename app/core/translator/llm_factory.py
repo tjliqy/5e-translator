@@ -39,6 +39,7 @@ class LLMFactory:
         self.add_finish = False
         self.job_count = 0
         self.finish_count = 0
+        self.error_count = 0
         self.job_queue = deque()
         self.done_func = done_func
         self.all_done_func = all_done_func
@@ -46,6 +47,14 @@ class LLMFactory:
         self.lock = threading.Lock()
         self.workers = []
 
+    def reset(self):
+        self.job_count = 0
+        self.finish_count = 0
+        self.error_count = 0
+        self.job_queue.clear()
+        self.res_obj.clear()
+        self.add_finish = False
+        
     def add_jobs(self, objs: list):
         self.lock.acquire()
         self.job_count += len(objs)
@@ -60,11 +69,15 @@ class LLMFactory:
         if job.err_time <= 3:
             self.job_queue.append(job)
         else:
+            self.error_count += 1
             logger.error(f"解析JOB超过最大重试次数，跳过JOB：{job}")
         self.lock.release()
 
     def set_finish(self, add_finish):
+        self.lock.acquire()
         self.add_finish = add_finish
+        self.lock.release()
+
 
     def get_job(self):
         self.lock.acquire()
@@ -91,7 +104,7 @@ class LLMFactory:
         return (
             len(self.job_queue) == 0
             and self.add_finish
-            and self.finish_count == self.job_count
+            and self.finish_count + self.error_count == self.job_count
         )
 
     def start_work(self):
@@ -107,6 +120,8 @@ class LLMFactory:
         for w in self.workers:
             w.join()
         self.workers.clear()
+    def isAllDone(self):
+        return self.finish_count == self.job_count
 
 
 # 定义消费者函数

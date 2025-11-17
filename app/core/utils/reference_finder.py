@@ -1,14 +1,13 @@
 import os
 from typing import List
 from .utils import strip_name
-def find_reference(text: str) -> (List[str]):
+def find_reference(text: str, target_dir: str = "/data/DND5e_chm") -> (List[str]):
     """
-    在/data/DND5e_CHM文件夹中查找包含text的文本，输出上下2行
+    在指定文件夹中查找包含text的文本，输出上下2行
     :param text: The text to search for a reference.
     :return: The reference list found in the text.
     """
     result = []
-    target_dir = "/data/DND5e_chm"
     striped_name = strip_name(text).replace(' ','')
     if striped_name == '' or len(striped_name) < 3:
         return []

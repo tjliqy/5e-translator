@@ -2,7 +2,7 @@ import json
 from config import *
 
 class Job:
-    def __init__(self, uid: str, en_str, cn_str, rel_path="", tag="", knowledge=[],current_names=[], is_proofread=False, sql_id=None) -> (None):
+    def __init__(self, uid: str, en_str, cn_str, rel_path="", tag="", knowledge=[],current_names=[], is_proofread=False, sql_id=None, modified_at=0) -> (None):
         self.uid = str(uid)
         self.en_str = en_str
         self.cn_str = cn_str
@@ -19,7 +19,9 @@ class Job:
         self.err_time = 0
         self.need_translate = False
         self.sql_id = sql_id
-
+        self.last_answer = ""
+        self.modified_at = modified_at
+        
     def __str__(self):
         return f'en_str:{self.en_str} \ncn_str:{self.cn_str}'
 
@@ -33,6 +35,17 @@ class Job:
         """
         转换为LLM问题
         """
+        # 若错误次数大于0且有上一次回答，则返回上一次回答，并且提供相应的提示词修改
+        if self.err_time > 0 and self.last_answer is not None and len(self.last_answer):
+            # 之前直接把 last_answer 当作 cn_str 发送，这会丢失原始中文并阻碍模型对比修正。
+            # 现在同时传入原始 cn_str、上次回答与错误计数，供 PROMOT_CORRECT_TAG 使用。
+            payload = {
+                "en_str": self.en_str,
+                "cn_str": self.cn_str,
+                "last_answer": self.last_answer,
+                "err_time": self.err_time,
+            }
+            return json.dumps(payload, ensure_ascii=False), PROMOT_CORRECT_TAG
         reference = []
         if self.knowledge is not None and len(self.knowledge):
             if self.rel_path == 'spells/spells-xphb.json':

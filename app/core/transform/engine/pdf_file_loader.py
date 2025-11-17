@@ -61,6 +61,12 @@ def load_adventure_files(root_dir):
     加载根目录下的所有PDF文件
     """
     adventure_documents = []
+    if not os.path.exists(root_dir):
+        return []
+    if os.path.isfile(root_dir):
+        loader = AdventureFileLoader(root_dir)
+        adventure_documents.extend(loader.load())
+        return adventure_documents
     for root, dirs, files in os.walk(root_dir):
         # if any(d in SKIP_HTML_DIRS for d in root.split('/')):
         #     continue

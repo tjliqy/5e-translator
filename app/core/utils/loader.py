@@ -14,18 +14,18 @@ from langchain_core.runnables import RunnableLambda
 from .file_work_info import FileWorkInfo
 from typing import List
 
-find_json_files = RunnableLambda(lambda root_folder: __find_json_files(root_folder))
+find_json_files = RunnableLambda(lambda root_folder: find_files(root_folder))
 write_translate_cache = RunnableLambda(lambda file_work_info: __write_translate_cache(file_work_info))
-def __find_json_files(root_folder:str):
+def find_files(root_folder:str, file_extension = '.json'):
     # 判断root_folder是文件还是文件夹
     if os.path.isfile(root_folder):
         # 如果是文件则直接返回
-        if root_folder.endswith('.json'):
+        if root_folder.endswith(file_extension):
             yield root_folder
     else:
         for root, _, files in os.walk(root_folder):
             for file in files:
-                if file.endswith('.json'):
+                if file.endswith(file_extension):
                     yield os.path.join(root, file)
 
 def read_file(json_file):
@@ -58,7 +58,7 @@ def __write_translate_cache(file_work_infos:List[FileWorkInfo]):
         _type_: _description_
     """
     for file_work_info in file_work_infos:
-        out_path = os.path.join(OUT_PATH, file_work_info.json_path)  # 输出目录
+        out_path = os.path.join(OUT_PATH, file_work_info.out_path)  # 输出目录
         rel_out_dir = os.path.dirname(out_path)  # 输出文件的文件夹
 
         # 若输出文件夹不存在则创建
@@ -79,7 +79,7 @@ def __write_translate_cache(file_work_infos:List[FileWorkInfo]):
                 else:
                     file.write(',\n')
                 file.write(json.dumps(
-                    j, default=lambda o: o.__dict__, ensure_ascii=False, indent=2))
+                    j, default=lambda o: o.__dict__ if hasattr(o, '__dict__') else str(o), ensure_ascii=False, indent=2))
             file.write('\n]')
         file_work_info.json_path = out_path
         yield file_work_info

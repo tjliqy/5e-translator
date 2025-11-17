@@ -161,7 +161,7 @@ class DBDictionary:
             logger.debug(f"从数据库中读取{k}")
             db_index = self.__get_db_index()
             db = self.db_list[db_index]
-            res = db.select('words', columns=['id', 'en', 'cn', 'json_file', 'proofread','category'], condition={
+            res = db.select('words', columns=['id', 'en', 'cn', 'json_file', 'proofread','category','modified_at'], condition={
                             'en': k}, order_by='version desc')
             self.__release_db(db_index)
             if res == None:
@@ -182,6 +182,7 @@ class DBDictionary:
                         'category': best_match['category'],
                         'proofread': best_match['proofread'],
                         'sql_id': best_match['id'],
+                        'modified_at': best_match['modified_at'],
                     }
                     if rel_f != "":
                         # 尝试插入source表
@@ -193,8 +194,9 @@ class DBDictionary:
                         'category': res[0]['category'],
                         'proofread': res[0]['proofread'],
                         'sql_id': res[0]['id'],
+                        'modified_at': best_match['modified_at'],
                     }
-                self.__put_redis(k, v_bean['cn'], v_bean['category'], v_bean['proofread'], v_bean['sql_id'])
+                self.__put_redis(k, v_bean['cn'], v_bean['category'], v_bean['proofread'], v_bean['sql_id'], v_bean['modified_at'])
         # self.__release_db(db_index)
         logger.debug(f"get函数执行时间：{time.time() - start_time} 秒")
         return v_bean
@@ -391,13 +393,14 @@ class DBDictionary:
         self.lower_dictionary = {}
         self.proofread_set = set()
 
-    def __put_redis(self, en, cn, category = None, proofread = 0, sql_id = None):
+    def __put_redis(self, en, cn, category = None, proofread = 0, sql_id = None, modified_at = 0):
         
         bean = {
             'cn': cn,
             'category': category,
             'proofread': proofread,
-            'sql_id': sql_id
+            'sql_id': sql_id,
+            'modified_at': modified_at
         }
         if en in self.dictionary:
             if any(c['cn'] == cn and c['category'] == category for c in self.dictionary[en]):
@@ -455,10 +458,10 @@ class DBDictionary:
         self.lock.acquire()
         if file_name == None:
             records = self.db_list[0].select(
-                'words', columns=['cn', 'en', 'version', 'proofread', 'category'])
+                'words', columns=['cn', 'en', 'version', 'proofread', 'category', 'modified_at'])
         else:
             records = self.db_list[0].execute_query(
-                'select id, cn, en, version, proofread, category from words where id in (select word_id from source where file=%s)', (file_name))
+                'select id, cn, en, version, proofread, category, modified_at from words where id in (select word_id from source where file=%s)', (file_name))
         self.lock.release()
 
         version_dict = {}
@@ -467,7 +470,7 @@ class DBDictionary:
             en = s['en']
             cn = s['cn']
             # db_k = en
-            self.__put_redis(en, cn, s['category'], s['proofread'], s['id'])
+            self.__put_redis(en, cn, s['category'], s['proofread'], s['id'], s['modified_at'])
                 
             v = version_dict.get(en)
 

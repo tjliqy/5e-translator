@@ -59,6 +59,7 @@ def main():
     # 数据解析流程
     elif args.function == 'translate':
         res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|KnowledgeSetter()|ByHandHandler()|TermSetter()|write_translate_cache|JobProcessor(args.thread_num, update=True)).invoke(args.en, config={'byhand': args.byhand, 'force': args.force, 'force_title': args.force_title, 'splited': args.splited})
+        # res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|KnowledgeSetter()|ByHandHandler()|TermSetter()|write_translate_cache).invoke(args.en, config={'byhand': args.byhand, 'force': args.force, 'force_title': args.force_title, 'splited': args.splited})
         # res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|write_translate_cache|JobProcessor(args.thread_num, update=True)).invoke(args.en, config={'byhand': args.byhand, 'force': args.force})
         # res = (find_json_files|JsonAnalyser()|JobNeedTranslateSetter()|KnowledgeSetter()|ByHandHandler()|write_translate_cache).invoke(args.en, config={'byhand': args.byhand, 'force': args.force, 'force_title': args.force_title})
         for r in res:
@@ -78,9 +79,6 @@ def main():
             combine_temp_terms_to_csv()
         elif args.mode == 'analyze':
             for root, dirs, files in os.walk('/data/5e-translator/data'):
-            # if any(d in SKIP_HTML_DIRS for d in root.split('/')):
-        #     continue
-        
                 for file in files:
                     if not file.endswith('.txt'):
                         continue

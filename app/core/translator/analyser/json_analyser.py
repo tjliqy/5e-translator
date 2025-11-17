@@ -47,9 +47,9 @@ class JsonAnalyser(Runnable):
             #         logger.error(f"JsonAnalyser: 分析{j}时出错，Job不合法")
             #         continue
             if self.splited:
-                yield FileWorkInfo(job_list, obj, get_rel_path(j, SPLITED_5ETOOLS_DATA_DIR))
+                yield FileWorkInfo(job_list, obj, self.rel_path, get_rel_path(j, SPLITED_5ETOOLS_DATA_DIR))
             else:
-                yield FileWorkInfo(job_list, obj, self.rel_path)
+                yield FileWorkInfo(job_list, obj, self.rel_path, self.rel_path)
 
     def txt_2_json(self, json_txt):
         """

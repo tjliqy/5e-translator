@@ -85,7 +85,7 @@ class TxtParser:
         将文本分割为适当大小的块
         """
         # 知识库中单段文本长度
-        CHUNK_SIZE = 150
+        CHUNK_SIZE = 400
         
         # 知识库中相邻文本重合长度
         OVERLAP_SIZE = 30

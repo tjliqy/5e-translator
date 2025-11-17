@@ -4,7 +4,7 @@ from app.core.database import ChromaAdapter
 from ..utils.file_work_info import FileWorkInfo
 from langchain_core.documents import Document
 from app.core.transform.pdf_transformer import transform_pdf
-from config import logger, BESTIARY_FILE_MAP,CHM_ROOT_DIR
+from config import logger, BESTIARY_FILE_MAP,CHM_ROOT_DIR,SPLITED_5ETOOLS_DATA_DIR, SPLITED_DIR_MAP, SPLITED_SOURCE_MAP
 import os
 
 KNOWLEDGE_SOURCE_DICT = {
@@ -13,8 +13,8 @@ KNOWLEDGE_SOURCE_DICT = {
 class KnowledgeSetter(Runnable):
     def __init__(self):
         self.knowledge_db:ChromaAdapter = ChromaAdapter()
-        pass
-    def invoke(self, input, config = None, **kwargs):
+        self.knowledge_source_dirs = []
+    def invoke(self, file_infos, config = None, **kwargs):
         """知识库设置器
         从知识库中查询相关知识，添加到job的knowledge字段中
 
@@ -26,10 +26,25 @@ class KnowledgeSetter(Runnable):
             FileWorkInfo: 添加了知识库信息的包含文件信息和任务列表的对象
         """
         if (config['metadata'].get('splited', False)):
-            for res in input:
+            for res in file_infos:
+                is_loaded_documents = False
+                for job in res.job_list:
+                    if not job.need_translate:
+                        continue    
+                    if job.cn_str is not None and job.cn_str == job.en_str:
+                        continue
+                    if not is_loaded_documents:
+                        # title = res.json_obj['_meta']['title']
+                        # knowledge_text, need_embedding = self.__map_chm_knowledge(res.json_path, title)
+                        is_loaded_documents = self.__map_chm_knowledge(res.out_path, "")
+                    
+                    documents:Document = self.knowledge_db.query(job.en_str)
+                    documents = documents[:2]
+                    if len(documents) != 0:
+                        job.knowledge.extend([d.page_content for d in documents])
                 yield res
             return
-        for res in input:
+        for res in file_infos:
             if "adventure" in res.json_path or "book-erlw" in res.json_path:
                 yield res
                 # yield self.__get_adventure_knowledge_by_embendding(res)
@@ -165,3 +180,36 @@ class KnowledgeSetter(Runnable):
                 if len(job.knowledge) > 0:
                     break
         return file_work_info
+    
+    
+    def __map_chm_knowledge(self, rel_path, title:str):
+        """映射chm文件中的知识"""
+        base_dirs = []
+        for k,v in SPLITED_DIR_MAP.items():
+            if k in rel_path:
+                base_dirs.extend(v)
+
+        if len(base_dirs) == 0:
+            for k, v in SPLITED_SOURCE_MAP.items():
+                if k in rel_path:
+                    base_dirs.append(v)
+                    break
+                    
+        if len(base_dirs) == 0:
+            # TODO 通过llm自动匹配
+            return False
+
+        if self.knowledge_source_dirs == base_dirs:
+            # 判断当前知识库，避免重复加载
+            return True
+        from config import CHM_TXT_DIR
+        from app.core.transform import load_adventure_files
+        documents = []
+        for base_dir in base_dirs:
+            
+            documents.extend(load_adventure_files(os.path.join(CHM_TXT_DIR, base_dir)))
+        #对lines临时进行嵌入编码
+        self.knowledge_db.reset()
+        self.knowledge_db.add(documents)
+        self.knowledge_source_dirs = base_dirs
+        return True
