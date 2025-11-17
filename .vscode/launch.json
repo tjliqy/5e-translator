@@ -25,7 +25,8 @@
             "request": "launch",
             "program": "main.py",
             "console": "integratedTerminal",
-            "args": "translate --en=/data/5etools-mirror-2.github.io/data-bak/bestiary/bestiary-hotb.json --force --thread_num 1"
+            "args": "translate --en /data/pttsw-core/output/split-data/dmg/variantrule --splited --force",
+            "justMyCode": true
         }
     ]
 }
