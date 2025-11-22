@@ -300,7 +300,7 @@ class DBDictionary:
         db_index = self.__get_db_index()
         db = self.db_list[db_index]
         term_res = db.select('term', columns=['en', 'cn', 'category'])
-        words_res = db.execute_query("select en, cn, category from words where proofread = 1 and (LENGTH(en) - LENGTH(replace(en,' ','')) < 4 or en like '%{@recharge%}' or en like '%(Costs%Action%)') and en != cn and category != 'no-term'")
+        words_res = db.execute_query("select en, cn, category from words where proofread = 1 and (LENGTH(en) - LENGTH(replace(en,' ','')) < 4 or en like '%{@recharge%}' or en like '%(Costs%Action%)') and en != cn and (category != 'no-term' or category is null)")
         res = set()
         for r in term_res:
             res.add(Term(r['en'], r['category'], r['cn']))

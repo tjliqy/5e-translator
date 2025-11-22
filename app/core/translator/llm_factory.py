@@ -44,6 +44,8 @@ class LLMFactory:
         self.done_func = done_func
         self.all_done_func = all_done_func
         self.res_obj = []
+        # 存放超过重试次数被丢弃的任务
+        self.failed_jobs = []
         self.lock = threading.Lock()
         self.workers = []
 
@@ -70,6 +72,11 @@ class LLMFactory:
             self.job_queue.append(job)
         else:
             self.error_count += 1
+            # 记录到 failed_jobs 以便外部采集与重试
+            try:
+                self.failed_jobs.append(job)
+            except Exception:
+                pass
             logger.error(f"解析JOB超过最大重试次数，跳过JOB：{job}")
         self.lock.release()
 
@@ -151,7 +158,7 @@ def kimi_work(factory: LLMFactory, work_func,
         #     factory.reset_job(job, True)
         #     __sleep(5)
         if kimi_status == TranslatorStatus.FAILURE:
-            logger.warning(f"线程{work_id}，获得结果失败,重新处理JOBS")
+            logger.warning(f"线程{work_id}，获得结果失败,重新处理JOBS") 
             factory.reset_job(job, True)
             # __sleep(120)
         elif kimi_status == TranslatorStatus.WAITING:

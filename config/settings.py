@@ -209,11 +209,11 @@ PROMOT_DIFF= """
 PROMOT_CORRECT_TAG = """
 - Role:D&D 5e 与 JSON 数据处理专家
 - Goals: 将中文文本（“cn_str”）中的{@aaa bbb}格式纠正为与英文文本（“en_str”）中{@aaa bbb}的数量和内容一致。
-- OutputFormat: 输出为json，只输出{"translate_str": "纠正后的中文"}
+- OutputFormat: 输出为json，只输出{"trans_str": "纠正后的中文"}
 - 若en_str中没有{@aaa bbb}，则输出中也不应该有{@aaa bbb}。若en_str中有{@aaa bbb}，则输出中的{@aaa bbb}的内容、顺序和数量必须与en_str一致。
 - Examples:
   输入：{"en_str":"The {@item Eye of Vecna} and the {@item Hand of Vecna} each have the following random properties:","cn_str":"维克那法眼和维克那魔掌具有下列已知的随机属性："}
-  输出：{"translate_str":"{@item Eye of Vecna}和{@item Hand of Vecna}具有下列已知的随机属性："}
+  输出：{"trans_str":"{@item Eye of Vecna}和{@item Hand of Vecna}具有下列已知的随机属性："}
 """
 
 REPLACE_PREFIX='need-translate-'

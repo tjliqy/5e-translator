@@ -26,7 +26,7 @@ class TermFromJson(Runnable):
         inputs = [input] if isinstance(input, str) else input
 
         for i in inputs:
-            logger.info(f"开始解析{i}中的Json")
+            logger.info(f"开始解析 {i} 中的Json")
             self.json_2_term(i)
             yield self.term_set
         

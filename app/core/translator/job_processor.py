@@ -58,7 +58,7 @@ class JobProcessor(Runnable):
             return
         
         for res in inputs:
-            logger.info(f"开始处理{res.json_path}中的Job")
+            logger.info(f"开始处理 {res.json_path} 中的Job")
             # self.rel_path = get_rel_path(res.json_path)
             # self.obj = res['obj']
             self.done_jobs: List[Job] = []
@@ -71,6 +71,32 @@ class JobProcessor(Runnable):
                 self.write_2_json(res.out_path, res.json_obj)
             else:
                 logger.error(f"处理{res.json_path}中的Job总计{self.factory.job_count}个，成功{self.factory.finish_count}个，失败{self.factory.error_count}个！")
+                # 将失败的 job 列表导出到文件，方便人工查看与重试
+                failed = []
+                try:
+                    failed = getattr(self.factory, 'failed_jobs', [])
+                except Exception:
+                    failed = []
+
+                failed_path = os.path.join(OUT_PATH, res.out_path + '.failed_jobs.json')
+                try:
+                    os.makedirs(os.path.dirname(failed_path), exist_ok=True)
+
+                    with open(failed_path, 'w') as fh:
+                        json.dump([j.to_serializable() for j in failed], fh, ensure_ascii=False, indent=2)
+                except Exception as e:
+                    logger.error(f'写出 failed_jobs 文件失败: {e}')
+
+                if len(failed) > 0:
+                    print(f"以下 {len(failed)} 个 Job 处理失败，已保存到: {failed_path}")
+                    for j in failed:
+                        last = j.last_answer if hasattr(j, 'last_answer') else ''
+                        last_short = last if not isinstance(last, str) else (last[:200] + '...' if len(last) > 200 else last)
+                        print(f"- uid: {j.uid}, en: {j.en_str}, err_time: {j.err_time}, last_answer: {last_short}")
+                    print('\n可用下面命令快速重试这些失败的Job (示例)：')
+                    print(f"python3 main.py retry-failed --file \"{failed_path}\" --thread_num {self.thread_num} --byhand {self.byhand} --force {self.force}")
+                else:
+                    print('没有记录到被丢弃的失败 Job。')
             yield res
             
     def __init_dictionary(self):

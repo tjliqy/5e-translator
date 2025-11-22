@@ -4,7 +4,7 @@ import os
 from flask_restful import Resource, Api, request
 from .restful_utils import *
 from app.model import WordsModel
-from config import OUT_PATH
+from config import EN_PATH
 from .base import BaseApi
 api = Api()
 
@@ -24,7 +24,7 @@ class JsonApi(Resource):
         source = request.args.get('source', None, str)
         
         if file_name:
-            file_path = os.path.join(FILE_PATH, file_name)
+            file_path = os.path.join(EN_PATH, file_name)
             if not os.path.exists(file_path):
                 return error(f"{file_name}不存在")
             with open(file_path, 'r') as file:
@@ -34,9 +34,9 @@ class JsonApi(Resource):
                     json_content = self.__check_source(json_content, source)
                 return success(data={'file':json_content})
         else:
-            if not os.path.exists(FILE_PATH):
+            if not os.path.exists(EN_PATH):
                 return error("数据目录不存在，请通知管理员检查")
-            files = find_json_files(FILE_PATH)
+            files = find_json_files(EN_PATH)
             return success(data=files)
     def __check_source(self, json_dict, source):
         return_dict = {}

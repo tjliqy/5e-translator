@@ -34,7 +34,7 @@ LOGGING_CONFIG = {
         # 文件处理器（输出 DEBUG 及以上级别，全量日志）
         "file_all": {
             "class": "logging.handlers.RotatingFileHandler",  # 按大小轮转
-            "level": "DEBUG",
+            "level": "INFO",
             "formatter": "detailed",
             "filename": LOG_DIR / f"app{logging_file_name}",
             "maxBytes": 1024 * 1024 * 5,  # 单个文件最大 5MB

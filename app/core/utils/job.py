@@ -41,7 +41,8 @@ class Job:
             # 现在同时传入原始 cn_str、上次回答与错误计数，供 PROMOT_CORRECT_TAG 使用。
             payload = {
                 "en_str": self.en_str,
-                "cn_str": self.cn_str,
+                # "cn_str": self.cn_str,
+                "reference": self.reference,
                 "last_answer": self.last_answer,
                 "err_time": self.err_time,
             }
@@ -147,3 +148,15 @@ class Job:
             #     cn_str = cn_str.replace(
             #         f"{{@{ck} {cv}}}", f"{{@{ek} {new_v}}}", 1)
         return self.cn_str, True
+    
+    def to_serializable(self):
+        """
+        将 Job 转换为可序列化的字典
+        """
+        job_dict = self.__dict__.copy()
+        # 处理terms属性，将Term对象转换为字典
+        if hasattr(self, 'terms') and self.terms:
+            job_dict['terms'] = [{'en': term.en, 'category': term.category, 'cn': term.cn} for term in self.terms]
+        if hasattr(self, 'modified_at') and self.modified_at:
+            job_dict['modified_at'] = str(self.modified_at)
+        return job_dict

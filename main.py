@@ -1,5 +1,5 @@
 import argparse
-from app.core.utils import find_json_files, write_translate_cache
+from app.core.utils import find_json_files, write_translate_cache, Job, FileWorkInfo
 from app.core.translator import JsonAnalyser, JobProcessor, KnowledgeSetter, TermSetter, JobNeedTranslateSetter, ByHandHandler
 from app.cli import transform_proofread, search_knowledge, compare_term, add_mysql_terms_to_redis, combine_temp_terms_to_csv,load_files_into_chroma_db, load_chm_files_into_chroma_db, load_term_from_text, transform_html_2_txt
 from config import EN_PATH
@@ -50,6 +50,16 @@ def main():
     chm_parser = subparsers.add_parser('chm')
     chm_parser.add_argument('--dir', default='/data/DND5e_chm/', type=str,
                                   help='Path to the directory to embed')
+
+    # 为 retry-failed 命令创建子解析器，用于从 failed_jobs.json 重试失败的 jobs
+    retry_parser = subparsers.add_parser('retry-failed')
+    retry_parser.add_argument('--file', required=True, type=str,
+                              help='Path to the failed_jobs json file to retry')
+    retry_parser.add_argument('--thread_num', default=10, type=int,
+                              help='Number of threads to use, default to 10')
+    retry_parser.add_argument('--byhand', action='store_true', default=False,
+                              help='Whether to use by hand mode, default to False')
+
     
     args = parser.parse_args()
     
@@ -112,6 +122,43 @@ def main():
     elif args.function == 'embed':
         load_files_into_chroma_db(args.dir)
         # load_chm_files_into_chroma_db('/data/DND5e_chm/艾伯伦：从终末战争中崛起')
+    elif args.function == 'retry-failed':
+        # 从失败文件中读取 jobs 并重试
+        import json
+        failed_file = args.file
+        try:
+            with open(failed_file, 'r') as fh:
+                failed_list = json.load(fh)
+        except Exception as e:
+            print(f'无法读取失败文件: {e}')
+            return
+
+        jobs = []
+        for jd in failed_list:
+            try:
+                j = Job(jd.get('uid'), jd.get('en_str'), jd.get('cn_str'), rel_path=jd.get('rel_path', ''), tag=jd.get('tag', ''), knowledge=jd.get('knowledge', []), current_names=jd.get('current_names', []), is_proofread=jd.get('is_proofread', False), sql_id=jd.get('sql_id', None), modified_at=jd.get('modified_at', 0))
+                # j.err_time = 1
+                # j.last_answer = jd.get('last_answer', '')
+                # 保证需要翻译
+                j.need_translate = True
+                jobs.append(j)
+            except Exception as e:
+                print(f'构建 Job 失败: {e} - {jd}')
+
+        if len(jobs) == 0:
+            print('没有可重试的 Job')
+            return
+
+        # 使用已在文件顶部导入的 JobProcessor 重新处理这些 jobs
+        # 把 jobs 包装成 FileWorkInfo，out_path 使用 failed 文件名的 basename 作为占位
+        out_base = os.path.basename(failed_file)
+        file_info = FileWorkInfo(jobs, {}, failed_file, os.path.join('retry', out_base))
+        processor = JobProcessor(args.thread_num, update=True)
+        # 注意：JobProcessor.invoke 内部通过 config['metadata'] 获取参数
+        cfg = {'metadata': {'byhand': args.byhand, 'force': False, 'force_title': False, 'splited': True}}
+        res = processor.invoke([file_info], config=cfg)
+        for r in res:
+            print(len(r.job_list), getattr(r, 'json_path', ''))
         
 if __name__ == '__main__':
     main()
